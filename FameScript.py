@@ -261,7 +261,7 @@ class Tokenizer():
                                     if type(gch) == Error:
                                         return tokens, gch
                                     if vm == 'printf':
-                                        print(gch.value)
+                                        print(gch.value, end = "")
                                         tokens += [Token("string", str(gch.value))]
                                     elif vm == 'scanf':
                                         tokens += [Token("string", input(str(gch.value)))]
