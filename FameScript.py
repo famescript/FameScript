@@ -11,6 +11,7 @@ class Token:
         self.args = 0
         self.argname = ''
         self.varname = ''
+        self.args1 = ()
     def __repr__(self):
         reprs = str(self.name) + ":" + str(self.value)
         return reprs
@@ -25,6 +26,7 @@ class Tokenizer():
         self.vars = Instance()
         self.text = text
         self.func = False
+        self.cfu = False
         self.pos = 0-1
         self.paren2 = False
         self.drv = ''
@@ -236,11 +238,14 @@ class Tokenizer():
                         if self.text[self.pos] == '(':
                             fn = False
                             m = True
-                            if vm in ['if', 'while', 'for', 'try', 'function', 'return']:
+                            if (vm in ['if', 'while', 'for', 'try', 'function', 'return'] ):
                                 fn = True
-                            if (not self.func) and (not vm in ['if', 'while', 'for', 'try', 'function', 'return']):
+                            if ((not self.func) and (not vm in ['if', 'while', 'for', 'try', 'function', 'return'])):
                                     do_func = True
-                                    break
+                            if (self.cfu):
+                                fn = True
+                                do_func = False
+                                self.cfu = False
                             break
 
                         else:
@@ -253,13 +258,57 @@ class Tokenizer():
                                     script.paren = True
                                     script.vars = self.vars
                                     script.func = False
+                                    script.arr = True
                                     lex = script.lex()
                                     self.pos += script.pos+2
                                     if lex[1] != None:
                                         return tokens, lex[1]
-                                    gch = compile(lex[0], self.vars)
-                                    if type(gch) == Error:
-                                        return tokens, gch
+                                    a = []
+                                    a2 = []
+                                    for item in lex[0]:
+                                        if item.name == 'SEPERATOR':
+                                            a += [a2]
+                                            a2 = []
+                                        else:
+                                            a2 += [item]
+                                    if a2 != []:
+                                        a += [a2]
+                                    exes = []
+                                    if not vm in ['printf', 'system', 'scanf', 'lstrip', 'strip', 'rstrip', 'reverse', 'eval', 'int', 'float', 'str', 'string', 'type', 'var']:
+                                        if not vm in self.vars.ins:
+                                            return tokens, Error("UndefinedError", "Undefined '" + vm + "'")
+                                    try:
+                                        arr = self.vars.ins[vm].args1
+                                    except:
+                                        arr = Token("array", [Token("string", "")])
+                                        arr.value[0].varname = "echo"
+                                    vns = []
+                                    y = 0-1
+                                    ratd = 0-1
+                                    try:
+                                        for g in range(len(self.vars.ins[vm].args1.value)-len(a)):
+                                            ratd += 1
+                                            a += [[arr.value[(len(a)-1)+ratd]]]
+                                    except:
+                                        pass
+                                    try:
+                                        for item in a:
+                                            try:
+                                                y += 1
+                                                ik = info()
+                                                p = compile(item, self.vars, False, ik)
+                                                if type(p) == Error:
+                                                    return tokens, p
+                                                exes += [p]
+                                                self.vars.ins[arr.value[y].varname] = p
+                                            except:
+                                                return tokens, Error("ArgumentsError", "Need Atleast Lower Than " + str(len(self.vars.ins[vm].args1.value)))
+                                    except:
+                                        return tokens, Error("BuiltinsError", "builtins accept only 1 argument.")
+                                    if vm in ['printf', 'system', 'scanf', 'lstrip', 'strip', 'rstrip', 'reverse', 'eval', 'int', 'float', 'str', 'string', 'type', 'var']:
+                                        gch = compile([exes[0]], self.vars)
+                                        if type(gch) == Error:
+                                            return tokens, gch
                                     if vm == 'printf':
                                         print(gch.value, end = "")
                                         tokens += [Token("string", str(gch.value))]
@@ -300,6 +349,8 @@ class Tokenizer():
                                         if type(cf) == Error:
                                             return tokens, cf
                                         tokens += [cf]
+                                    elif vm == 'var':
+                                        tokens += [Token("variable", str(gch.value))]
                                     elif vm == 'int':
                                         try:
                                             float(gch.value)
@@ -328,14 +379,6 @@ class Tokenizer():
                                         if self.vars.ins[vm].name != "section":
                                             return tokens, Error("FunctionError", "Expected 'section' not '" + self.vars.ins[vm].name + "'")
                                         l = self.vars.ins[vm]
-                                        if l.args == 0:
-                                            if gch.name != "":
-                                                return tokens, Error("FunctionError", "No Need For Args.")
-                                        else:
-                                            if gch.name == '':
-                                                return tokens, Error("FunctionError", "Missing Argument.")
-                                            else:
-                                                self.vars.ins[l.argname] = gch
                                     
                                         rj = Exe(self.vars.ins[vm].value, self.vars)
                                         if type(rj) == Error:
@@ -347,11 +390,15 @@ class Tokenizer():
                 self.pos -= 1
                 try:
                     if fn:
+                        if self.cfu:
+                            self.cfu = False
                         if vm in ['if', 'while', 'for', 'try', 'function', 'return']:
                             if tokens != []:
                                 # return tokens, Error("SyntaxError", "Invaild Tokens.")
                                 pass
                         tokens += [Token("variable", (vm))]
+                        if vm == 'function':
+                            self.cfu = True
                     else:
                             pass
                 except:
@@ -540,13 +587,16 @@ def compile(toks, ins = Instance(), mkvar = False, inf = info(), debug = False):
                             for km in toks:
                                 print(km.name, "&",  km.value, "$")
                             return Error("StatementError", "Expected 'section' not '" + l.name +"'")
+                        if toks[pos+1].name != "variable":
+                            return Error("SyntaxError", "Expected Variable.")
                         if not (len(toks[pos+1:-1]) in [1, 2]):
                             return Error("SyntaxError", "Invaild Tokens.")
-                        if toks[pos+1].name != "variable":
-                            return Error("SyntaxError", "Need A Variable Token.")
-                        l.args = len(toks[pos+1:-1])-1
-                        if l.args == 1:
-                            l.argname = toks[pos+2].value
+                        p = compile(toks[pos+2:-1], ins)
+                        if type(p) == Error:
+                            return p
+                        if p.name != "array":
+                            return Error("SyntaxError", "Expected Array Of Values Or Variables")
+                        l.args1 = p
                         ins.ins[toks[pos+1].value] = l
                         return Token("number", "0")
                 if name == 'try':
