@@ -1,3 +1,3 @@
 function main zero {
-  printf("hello, world!");
+  printf("hello, world!"\n);
 };
