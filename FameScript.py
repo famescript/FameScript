@@ -584,8 +584,7 @@ def compile(toks, ins = Instance(), mkvar = False, inf = info(), debug = False):
                 if name == 'function':
                         l = compile([toks[len(toks)-1]], ins)
                         if l.name != 'section':
-                            for km in toks:
-                                print(km.name, "&",  km.value, "$")
+                            
                             return Error("StatementError", "Expected 'section' not '" + l.name +"'")
                         if toks[pos+1].name != "variable":
                             return Error("SyntaxError", "Expected Variable.")
